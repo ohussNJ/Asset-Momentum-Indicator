@@ -1,0 +1,123 @@
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ohussNJ
+
+//@version=6
+indicator("Asset Momentum Indicator - ohussNJ", overlay=false)
+
+// === INPUTS ===
+buyScore = 0
+sellScore = 0
+
+// === Volume ===
+lookback = 3
+volThreshold = 0.98
+
+priceSlope = ta.linreg(close, lookback, 0)
+
+volDecreasing = true
+for i = 0 to lookback - 2
+    if volume[i] >= volume[i + 1] * volThreshold
+        volDecreasing := false
+
+if priceSlope > 0 and volDecreasing
+    buyScore += 1
+    
+if priceSlope < 0 and volDecreasing
+    sellScore += 1
+
+// === STOCH RSI ===
+f_stochRSI(_rsiLength, _stochLength) =>
+    r = ta.rsi(close, _rsiLength)
+    s = ta.stoch(r, r, r, _stochLength)
+    ta.sma(s, 3)
+
+kSlow = f_stochRSI(14, 14)
+kFast = f_stochRSI(6, 9) 
+
+dSlow = ta.sma(kSlow, 3)
+dFast = ta.sma(kFast, 3)
+
+if (kSlow < 0.2 and ta.crossover(kSlow, dSlow)) or (kFast < 0.2 and ta.crossover(kFast, dFast))
+    buyScore += 1
+    
+if (kSlow > 0.8 and ta.crossunder(kSlow, dSlow)) or (kFast > 0.8 and ta.crossunder(kFast, dFast))
+    sellScore += 1
+
+// === ICHIMOKU ===
+kijunLength = input.int(26)
+
+kijun = (ta.highest(high, kijunLength) + ta.lowest(low, kijunLength)) / 2
+
+if close > kijun
+    buyScore += 1
+
+if close < kijun
+    sellScore += 1
+
+// === RSI ===
+rsi = ta.rsi(close, 14)
+rsiMA = ta.sma(rsi, 14)
+
+smoothLen = 14
+trendLen = 20
+
+rsiSmooth = ta.ema(rsi, smoothLen)
+slope = ta.linreg(rsiSmooth, trendLen, 0) - ta.linreg(rsiSmooth, trendLen, 1)
+
+if slope > 0 and rsi >= 56 and rsiSmooth > rsiMA
+    buyScore += 1
+
+if slope < 0 and rsi <= 36 and rsiSmooth < rsiMA
+    sellScore += 1
+
+// === EMAs/SMAs ===
+ema200 = ta.ema(close, 200)
+ema50 = ta.ema(close, 50)
+
+sma200 = ta.sma(close, 200)
+sma50 = ta.sma(close, 50)
+
+if close > ema200 or close > sma200
+    buyScore += 1
+if close > ema50 or close > sma50
+    buyScore += 1 
+    
+if close < ema200 or close < sma200
+    sellScore += 1
+if close < ema50 or close < sma50
+    sellScore += 1
+
+// === KELTNER ===
+length = input.int(20)
+atrLength = input.int(10)
+atrMult = input.float(2.0)
+widthSmoothing = input.int(10)
+
+emaMiddle = ta.ema(close, length)
+atrValue = ta.atr(atrLength)
+
+upperBand = emaMiddle + atrMult * atrValue
+lowerBand = emaMiddle - atrMult * atrValue
+
+// TODO
+channelWidth = upperBand - lowerBand
+channelWidthSMA = ta.sma(channelWidth, widthSmoothing)
+keltnerChannelThreshold = 0.05 * channelWidthSMA
+isWidening = channelWidth > channelWidthSMA + keltnerChannelThreshold
+
+if close > emaMiddle
+    buyScore += 1
+if close < emaMiddle
+    sellScore += 1
+
+if close > upperBand
+    buyScore += 1
+if close < lowerBand
+    sellScore += 1
+
+// === SIGNALS ===
+netScore = buyScore - sellScore
+scoreSmooth = ta.sma(netScore, 5)
+
+// === PLOTS ===
+plot(scoreSmooth, color=color.blue)
