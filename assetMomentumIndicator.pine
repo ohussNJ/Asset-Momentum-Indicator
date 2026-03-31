@@ -9,13 +9,13 @@ buyScore = 0
 sellScore = 0
 
 // === Volume ===
-lookback = 3
+volLookback = 3
 volThreshold = 0.98
 
-priceSlope = ta.linreg(close, lookback, 0)
+priceSlope = ta.linreg(close, volLookback, 0)
 
 volDecreasing = true
-for i = 0 to lookback - 2
+for i = 0 to volLookback - 2
     if volume[i] >= volume[i + 1] * volThreshold
         volDecreasing := false
 
@@ -37,10 +37,10 @@ kFast = f_stochRSI(6, 9)
 dSlow = ta.sma(kSlow, 3)
 dFast = ta.sma(kFast, 3)
 
-if (kSlow < 0.2 and ta.crossover(kSlow, dSlow)) or (kFast < 0.2 and ta.crossover(kFast, dFast))
+if (kSlow < 20 and ta.crossover(kSlow, dSlow)) or (kFast < 20 and ta.crossover(kFast, dFast))
     buyScore += 1
     
-if (kSlow > 0.8 and ta.crossunder(kSlow, dSlow)) or (kFast > 0.8 and ta.crossunder(kFast, dFast))
+if (kSlow > 80 and ta.crossunder(kSlow, dSlow)) or (kFast > 80 and ta.crossunder(kFast, dFast))
     sellScore += 1
 
 // === ICHIMOKU ===
