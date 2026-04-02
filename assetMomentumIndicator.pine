@@ -19,7 +19,6 @@ buyScore = 0
 sellScore = 0
 
 // === VOLUME ===
-volumeLookback = 3
 volumeMALength = 20
 
 volumeMA = ta.sma(volume, volumeMALength)
@@ -159,6 +158,7 @@ isWidening = channelWidth > channelWidthSMA + keltnerChannelThreshold
 
 if close > upperBand and isWidening
     buyScore += 10
+
 if close < lowerBand and isWidening
     sellScore += 10
 
