@@ -6,15 +6,15 @@ indicator("Asset Momentum Indicator", overlay=false)
 
 // === Scoring Indicators ===
 // Momentum (20 points): RSI (20)
-// Trend (20): EMA/SMA (10), Ichimoki Cloud (10)
-// Volatility(10): Keltner (10)
+// Trend (20): EMA/SMA (10), Ichimoku Cloud (10)
+// Volatility(10): Realized Volatility 30D vs 90D (10)
 // Volume(20): Net positive/negative volume (10), OBV (10)
 
 // === Visual Indicators ===
 // Short Term Momentum: Stochastic RSI
 // Short Term Volume: Volume (Built in)
 
-// === INPUTS ===
+// === SCORE ===
 buyScore = 0
 sellScore = 0
 
@@ -31,25 +31,19 @@ isWeakVolume = volume[2] < volumeMA and isVolumeDecreasing
 
 plotColor = isStrongVolume ? color.green : isWeakVolume ? color.red : color.blue
 
-// === OBV === 
+// === ALTERNATIVE VOLUME CONDITIONS (ratio-based, single bar) ===
+// isStrongVolume = volume > volumeMA * 1.5
+// isWeakVolume = volume < volumeMA * 0.6
+
+// === OBV ===
 obv = ta.obv
 obvEMA = ta.ema(obv, 20)
+obvSlope = ta.linreg(obv, 20, 0) - ta.linreg(obv, 20, 1)
 
-obvApex = ta.pivothigh(obv, 4, 4)
-obvBase = ta.pivotlow(obv, 4, 4)
-
-var float lastObvHigh = na
-var float lastObvLow = na
-
-if not na(obvApex)
-    lastObvHigh := obvApex
-if not na(obvBase)
-    lastObvLow := obvBase
-
-if obv > obvEMA and obv > lastObvLow
+if obv > obvEMA and obvSlope > 0
     buyScore += 10
 
-if obv < obvEMA and obv < lastObvHigh
+if obv < obvEMA and obvSlope < 0
     sellScore += 10
 
 // === NET POSITIVE/NEGATIVE VOLUME ===
@@ -60,7 +54,7 @@ cnv_tb = cnv - ta.sma(cnv, 20)
 if cnv_tb > 0
     buyScore += 10
     
-if cnv_tb <= 0
+if cnv_tb < 0
     sellScore += 10
 
 // === STOCH RSI ===
@@ -114,11 +108,11 @@ rsiTrendLen = 20
 rsiSmooth = ta.ema(rsi, rsiSmoothLen)
 rsiSlope = ta.linreg(rsiSmooth, rsiTrendLen, 0) - ta.linreg(rsiSmooth, rsiTrendLen, 1)
 
-if rsiSlope > 0 and rsi >= 56 and rsiSmooth > rsiMA
-    buyScore += 20
+rsiConditions = (rsiSlope > 0 ? 1 : 0) + (rsi > 50 ? 1 : 0) + (rsi > rsiMA ? 1 : 0)
+buyScore += rsiConditions >= 2 ? 20 : rsiConditions == 1 ? 10 : 0
 
-if rsiSlope < 0 and rsi <= 36 and rsiSmooth < rsiMA
-    sellScore += 20
+rsiSellConditions = (rsiSlope < 0 ? 1 : 0) + (rsi < 50 ? 1 : 0) + (rsi < rsiMA ? 1 : 0)
+sellScore += rsiSellConditions >= 2 ? 20 : rsiSellConditions == 1 ? 10 : 0
 
 // === EMAs/SMAs ===
 ema200 = ta.ema(close, 200)
@@ -127,48 +121,62 @@ ema50 = ta.ema(close, 50)
 sma200 = ta.sma(close, 200)
 sma50 = ta.sma(close, 50)
 
-if close > ema200 and close > sma200
-    buyScore += 5
+score50Buy = (close > ema50 ? 1 : 0) + (close > sma50 ? 1 : 0)
+buyScore += score50Buy == 2 ? 5 : score50Buy == 1 ? 2 : 0
 
-if close > ema50 and close > sma50
-    buyScore += 5
-    
-if close < ema200 and close < sma200
-    sellScore += 5
+score200Buy = (close > ema200 ? 1 : 0) + (close > sma200 ? 1 : 0)
+buyScore += score200Buy == 2 ? 5 : score200Buy == 1 ? 2 : 0
 
-if close < ema50 and close < sma50
-    sellScore += 5
+score50Sell = (close < ema50 ? 1 : 0) + (close < sma50 ? 1 : 0)
+sellScore += score50Sell == 2 ? 5 : score50Sell == 1 ? 2 : 0
 
-// === KELTNER ===
-emaLength = input.int(20)
-atrLength = input.int(10)
-atrMult = input.float(2.0)
-widthSmoothing = input.int(10)
+score200Sell = (close < ema200 ? 1 : 0) + (close < sma200 ? 1 : 0)
+sellScore += score200Sell == 2 ? 5 : score200Sell == 1 ? 2 : 0
 
-emaMiddle = ta.ema(close, emaLength)
-atrValue = ta.atr(atrLength)
+// === KELTNER (commented out, kept for reference) ===
+// emaLength = input.int(20)
+// atrLength = input.int(10)
+// atrMult = input.float(2.0)
+// widthSmoothing = input.int(10)
+// emaMiddle = ta.ema(close, emaLength)
+// atrValue = ta.atr(atrLength)
+// upperBand = emaMiddle + atrMult * atrValue
+// lowerBand = emaMiddle - atrMult * atrValue
+// channelWidth = upperBand - lowerBand
+// channelWidthSMA = ta.sma(channelWidth, widthSmoothing)
+// keltnerChannelThreshold = 0.05 * channelWidthSMA
+// isWidening = channelWidth > channelWidthSMA + keltnerChannelThreshold
+// if close > upperBand and isWidening
+//     buyScore += 10
+// if close < lowerBand and isWidening
+//     sellScore += 10
 
-upperBand = emaMiddle + atrMult * atrValue
-lowerBand = emaMiddle - atrMult * atrValue
+// === REALIZED VOLATILITY (30D vs 90D) ===
+logReturn = math.log(close / close[1])
+hv30 = ta.stdev(logReturn, 21) * math.sqrt(252) * 100
+hv90 = ta.stdev(logReturn, 63) * math.sqrt(252) * 100
 
-channelWidth = upperBand - lowerBand
-channelWidthSMA = ta.sma(channelWidth, widthSmoothing)
-keltnerChannelThreshold = 0.05 * channelWidthSMA
-isWidening = channelWidth > channelWidthSMA + keltnerChannelThreshold
+priceSlope = ta.linreg(close, 21, 0) - ta.linreg(close, 21, 1)
+priceRising = priceSlope > 0
+priceFalling = priceSlope < 0
 
-if close > upperBand and isWidening
+if hv30 < hv90 and priceRising
     buyScore += 10
 
-if close < lowerBand and isWidening
+if hv30 > hv90 and priceFalling
     sellScore += 10
 
 // === SIGNALS ===
 netScore = buyScore - sellScore
-scoreSmooth = ta.sma(netScore, 5)
+scoreSMA5  = ta.sma(netScore, 5)
+//scoreEMA8  = ta.ema(netScore, 8)
+//scoreSMA10 = ta.sma(netScore, 10)
 
 // === PLOTS ===
 hline(0, "Neutral", color=color.gray, linestyle=hline.style_dotted, linewidth=2)
 upperExtreme = hline(70, "Upper Band", color=color.new(color.red, 50), linestyle=hline.style_dashed)
 lowerExtreme = hline(-70, "Lower Band", color=color.new(color.green, 50), linestyle=hline.style_dashed)
 fill(upperExtreme, lowerExtreme, color=color.new(color.gray, 95))
-plot(scoreSmooth, color=plotColor)
+plot(scoreSMA5,  title="Score SMA 5",  color=plotColor)
+//plot(scoreEMA8,  title="Score EMA 8",  color=color.new(color.white, 30))
+//plot(scoreSMA10, title="Score SMA 10", color=color.new(color.yellow, 30))
