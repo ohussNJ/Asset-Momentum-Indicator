@@ -1,7 +1,8 @@
 // This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// @ohussNJ
 
 //@version=6
-indicator("Rex Signal", overlay=false)
+indicator("Asset Momentum Indicator", overlay=false)
 
 // === Scoring Indicators ===
 // Momentum (20 points): RSI (20)
