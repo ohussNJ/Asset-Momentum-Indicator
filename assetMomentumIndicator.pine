@@ -1,12 +1,11 @@
 // This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
-// © archdukefeltner
 
 //@version=6
 indicator("Rex Signal", overlay=false)
 
 // === Scoring Indicators ===
 // Momentum (20 points): RSI (20)
-// Trend (20): EMA/SMA (10), Ichimoki Cloud (10)
+// Trend (20): EMA/SMA (10), Ichimoku Cloud (10)
 // Volatility (10): Keltner (10)
 // Volume (20): Net positive/negative volume (10), OBV (10)
 
@@ -105,13 +104,13 @@ rsiTrendLen = 20
 rsiSmooth = ta.ema(rsi, rsiSmoothLen)
 rsiSlope = ta.linreg(rsiSmooth, rsiTrendLen, 0) - ta.linreg(rsiSmooth, rsiTrendLen, 1)
 
-if rsiSlope > 0 and rsiSmooth > rsiMA
+if rsiSlope > 0 and rsi > rsiMA
     buyScore += 10
 
 if rsi >= 56 
     buyScore += 10
 
-if rsiSlope < 0 and rsiSmooth < rsiMA
+if rsiSlope < 0 and rsi < rsiMA
     sellScore += 10
 
 if rsi <= 36
