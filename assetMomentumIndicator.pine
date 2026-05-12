@@ -3,6 +3,7 @@
 
 //@version=6
 indicator("Asset Momentum Indicator", overlay=false)
+import TradingView/ta/12
 
 // === Scoring Indicators ===
 // Momentum (20 points): RSI (20)
@@ -161,10 +162,40 @@ if close < lowerBand and isWidening
 // === SIGNALS ===
 netScore = buyScore - sellScore
 scoreSmooth = ta.sma(netScore, 5)
+scoreSlope = ta.linreg(scoreSmooth, 5, 0) - ta.linreg(scoreSmooth, 5, 1)
+
+var string scoreState = "NUETRAL"
+if scoreState == "NUETRAL"
+    if scoreSmooth > 30 and scoreSlope > 0
+        scoreState := "BULL"
+    else if scoreSmooth < -30 and scoreSlope < 0
+        scoreState := "BEAR"
+else if scoreState == "BULL"
+    if scoreSmooth < 10
+        scoreState := "NUETRAL"
+else if scoreState == "BEAR"
+    if scoreSmooth > -10
+        scoreState := "NUETRAL"
 
 // === PLOTS ===
+dotSmoothLen = input.int(3, "Dot Smoothing", minval=1, maxval=10)
+dotSource = ta.ema(netScore, dotSmoothLen)
+dotSlope = ta.linreg(dotSource, 5, 0) - ta.linreg(dotSource, 5, 1)
+wavePeak   = dotSlope[1] > 0 and dotSlope <= 0
+waveTrough = dotSlope[1] < 0 and dotSlope >= 0
+
 hline(0, "Neutral", color=color.gray, linestyle=hline.style_dotted, linewidth=2)
 upperExtreme = hline(70, "Upper Band", color=color.new(color.red, 50), linestyle=hline.style_dashed)
 lowerExtreme = hline(-70, "Lower Band", color=color.new(color.green, 50), linestyle=hline.style_dashed)
-fill(upperExtreme, lowerExtreme, color=color.new(color.gray, 95))
-plot(scoreSmooth, color=plotColor)
+
+scorePlot = plot(scoreSmooth, color=plotColor)
+zeroPlot = plot(0, color=color.new(color.gray, 100), display=display.none)
+fill(scorePlot, zeroPlot, color=scoreState == "BULL" ? color.new(color.green, 80) : scoreState == "BEAR" ? color.new(color.red, 80) : na)
+
+plotshape(wavePeak ? scoreSmooth : na, title="Wave Peak", style=shape.circle, 
+     location=location.absolute, color=color.new(color.red, 0), 
+     size=size.tiny)
+
+plotshape(waveTrough ? scoreSmooth : na, title="Wave Trough", style=shape.circle, 
+     location=location.absolute, color=color.new(color.green, 0), 
+     size=size.tiny)
